@@ -344,3 +344,139 @@ function bsRenderCarousel($items, $imagefield, $headerField, $bodyField) {
 
 	return $out;
 }
+
+
+/**
+ * Render a ProcessWire comment using Uikit markup
+ * 
+ * (work in progress) 
+ *
+ * @param Comment $comment
+ * @param array|string $options Coming soon
+ * @return string
+ *
+ */
+function Comment(Comment $comment, $options = array()) {
+
+	$defaults = array(
+		'comments' => null, // instance of CommentArray when called from ukComments()
+		'depth' => 0,
+	);
+
+	// $options = _ukMergeOptions($defaults, $options); 
+	$text = $comment->getFormatted('text');
+	$cite = $comment->getFormatted('cite');
+	$website = $comment->getFormatted('website');
+	$field = $comment->getField();
+	$page = $comment->getPage();
+	$classes = array();
+	$metas = array();
+	$gravatar = '';
+	$replies = '';
+
+	if($field->get('useGravatar')) {
+		$img = $comment->gravatar($field->get('useGravatar'), $field->get('useGravatarImageset'));
+		if($img) $gravatar = "<img class='d-flex mr-3 rounded-circle' src='$img' alt='$cite'>";
+	}
+
+	if($website) $cite = "<a href='$website' rel='nofollow' target='_blank'>$cite</a>";
+	$created = wireDate('relative', $comment->created);
+
+	if($field->get('usePermalink')) {
+		$permalink = $page->httpUrl;
+		$urlSegmentStr = $this->wire('input')->urlSegmentStr;
+		if($urlSegmentStr) $permalink .= rtrim($permalink, '/') . $urlSegmentStr . '/';
+		$permalink .= '#Comment' . $comment->id;
+		$permalink = "<a href='$permalink'>" . __('Permalink') . "</a>";
+		$metas[] = "<li>$permalink</li>";
+	}
+
+	$classes = implode(' ', $classes);
+	$metas = implode('', $metas);
+
+	$out = "
+	<div class='media mb-4' id='Comment$comment->id' data-comment='$comment->id'>
+	  $gravatar
+	  <div class='media-body'>
+	    <h5 class='mt-0'>$created</h5>
+	    $text
+	  </div>
+	</div>
+	$replies
+	";
+
+	return $out;
+}
+
+/**
+ * Render a list of ProcessWire comments using Uikit markup
+ *
+ * @param CommentArray $comments
+ * @param array|string $options Options to modify default behavior
+ *  - `id` (string): HTML id attribute of the comments list (default='comments').
+ *  - `parent_id` (int): Database id of the parent comment, when rendering a comment thread.
+ * @return string
+ *
+ */
+function Comments(CommentArray $comments, $options = array()) {
+
+	$defaults = array(
+		'id' => 'comments',
+		'parent_id' => 0,
+		'comments' => $comments, // for ukComment() method only
+	);
+
+	if(!count($comments)) return '';
+
+	
+	foreach($comments as $comment) {
+		$out .= Comment($comment, $options);
+	}
+	
+	return $out;
+}
+
+/**
+ * Render a comment posting form
+ *
+ * @param CommentArray $comments
+ * @param array $options See `CommentForm` class for all options.
+ * @return string
+ *
+ */
+function CommentForm(CommentArray $comments, array $options = array()) {
+
+	$defaults = array(
+		'headline' => "",
+		'successMessage' =>
+			__('Thank you, your comment has been posted.'),
+		'pendingMessage' =>
+			__('Your comment has been submitted and will appear once approved by the moderator.'),
+		'errorMessage' =>
+			__('Your comment was not saved due to one or more errors.') . ' ' .
+			__('Please check that you have completed all fields before submitting again.'),
+	);
+
+	if(!isset($options['attrs']) || !isset($options['attrs']['class'])) {
+		$options['attrs'] = array('class' => 'uk-comment uk-comment-primary');
+	}
+
+	$adjustments = array(
+		"<input type='text'" => "<input type='text' class='form-control'",
+		"<p class='CommentForm" => "<p class='CommentForm",
+		"<textarea " => "<textarea class='form-control' ",
+		"<button " => "<button class='btn btn-primary' ",
+		"<label " => "<label class='' ",
+	);
+
+	$out = "<div class='card my-4'>";
+	$out .= "  <h5 class='card-header'>Leave a Comment:</h5>";
+	$out .= "  <div class='card-body'>";
+	$out .= $comments->renderForm($options);
+	$out .= "  </div>";
+	$out .= "</div>";
+
+	$out = str_replace(array_keys($adjustments), array_values($adjustments), $out);
+
+	return $out;
+}
